@@ -53,4 +53,116 @@
         canvas.width = 400; canvas.height = 600;
 
         // HỆ THỐNG ÂM THANH
-        const bgm = new Audio
+        const bgm = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3');
+        bgm.loop = true; bgm.volume = 0.3;
+        const crashSfx = new Audio('https://actions.google.com/sounds/v1/impacts/crash_impact_metal.ogg');
+        const pointSfx = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+
+        let gameActive = false, score = 0, speed = 5, obstacles = [], roadOffset = 0, frameCount = 0;
+        const player = { x: 177, y: 480, w: 45, h: 80 };
+        const keys = {};
+
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        // QUAY VỀ TRANG CHỦ
+        function showHome() {
+            gameActive = false;
+            bgm.pause(); bgm.currentTime = 0;
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            displayRanking();
+        }
+
+        function startGame() {
+            score = 0; speed = 6; obstacles = []; player.x = 177;
+            gameActive = true;
+            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+            bgm.play().catch(() => console.log("Cần tương tác để phát nhạc"));
+            loop();
+        }
+
+        // BẢNG XẾP HẠNG (LocalStorage)
+        function updateRanking(newScore) {
+            let ranks = JSON.parse(localStorage.getItem('asphalt_fury_ranks')) || [];
+            ranks.push(newScore);
+            ranks.sort((a, b) => b - a);
+            ranks = ranks.slice(0, 5);
+            localStorage.setItem('asphalt_fury_ranks', JSON.stringify(ranks));
+        }
+
+        function displayRanking() {
+            const ranks = JSON.parse(localStorage.getItem('asphalt_fury_ranks')) || [];
+            const list = document.getElementById('rank-list');
+            list.innerHTML = ranks.length ? ranks.map((s, i) => `#${i+1}. Score: ${s}`).join('<br>') : "Chưa có dữ liệu";
+        }
+
+        function spawn() {
+            const isPoint = Math.random() < 0.15;
+            obstacles.push({
+                x: Math.random() * (canvas.width - 60) + 10, y: -100, 
+                w: isPoint ? 25 : 45, h: isPoint ? 25 : 85,
+                type: isPoint ? 'point' : 'car'
+            });
+        }
+
+        function update() {
+            if (!gameActive) return;
+            roadOffset = (roadOffset + speed) % 50;
+            if (keys['ArrowLeft'] && player.x > 10) player.x -= 8;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w - 10) player.x += 8;
+            
+            speed = 6 + Math.floor(score / 1200);
+            if (frameCount % Math.max(12, 80 - speed * 3) === 0) spawn();
+
+            obstacles.forEach((obj, i) => {
+                obj.y += speed;
+                // KIỂM TRA VA CHẠM / NGHIỀN NÁT
+                if (player.x < obj.x + obj.w && player.x + player.w > obj.x && player.y < obj.y + obj.h && player.y + player.h > obj.y) {
+                    if (obj.type === 'car') {
+                        gameActive = false;
+                        crashSfx.play(); bgm.pause();
+                        updateRanking(score);
+                        document.getElementById('game-over-screen').classList.remove('hidden');
+                        document.getElementById('final-score').innerText = `SCORE: ${score}`;
+                    } else {
+                        score += 200; pointSfx.play(); obstacles.splice(i, 1);
+                    }
+                }
+                if (obj.y > 600) { obstacles.splice(i, 1); if (obj.type === 'car') score += 20; }
+            });
+            document.getElementById('current-score').innerText = score;
+            frameCount++;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Vạch kẻ đường Neon
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"; ctx.lineWidth = 2; ctx.setLineDash([30, 25]);
+            ctx.lineDashOffset = -roadOffset;
+            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
+            
+            // Vẽ người chơi (Xe trắng viền Neon)
+            ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
+            ctx.fillStyle = "#fff"; ctx.fillRect(player.x, player.y, player.w, player.h);
+            
+            // Vật phẩm và xe địch
+            obstacles.forEach(obj => {
+                if (obj.type === 'point') {
+                    ctx.fillStyle = "#00f2ff"; ctx.beginPath();
+                    ctx.arc(obj.x + obj.w/2, obj.y + obj.h/2, 10, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.shadowBlur = 0; ctx.fillStyle = "#444";
+                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                }
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function loop() { if (gameActive) { update(); draw(); requestAnimationFrame(loop); } }
+        
+        // Hiển thị bảng xếp hạng khi vừa load trang
+        displayRanking();
+    </script>
+</body>
+</html>
