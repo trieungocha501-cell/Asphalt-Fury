@@ -10,15 +10,18 @@
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; }
         
         .fury-title { font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #00f2ff; margin: 0; font-weight: 900; }
-        .warning-text { color: #ff0055; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
-        .instruction { color: #aaa; font-size: 0.75rem; margin-bottom: 20px; font-style: italic; }
+        .warning-text { color: #ff0055; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
+        
+        /* PHẦN LƯU Ý DI CHUYỂN CẬP NHẬT */
+        .move-note { color: #00f2ff; font-size: 0.8rem; margin: 15px 0; font-weight: bold; border: 2px solid #00f2ff; padding: 10px; background: rgba(0, 242, 255, 0.1); text-transform: uppercase; }
         
         #score-board { position: absolute; top: 15px; left: 15px; color: #00f2ff; font-weight: bold; z-index: 10; font-size: 1.1rem; }
         
-        button { padding: 12px 30px; margin: 8px; background: transparent; border: 1px solid #00f2ff; color: #00f2ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; width: 220px; }
+        button { padding: 12px 30px; margin: 5px; background: transparent; border: 1px solid #00f2ff; color: #00f2ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; width: 220px; }
         button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }
         
-        .leaderboard { margin-top: 20px; border-top: 1px solid #333; width: 85%; font-size: 0.8rem; color: #00f2ff; }
+        .leaderboard { margin-top: 15px; border-top: 1px solid #333; width: 85%; font-size: 0.9rem; color: #00f2ff; }
+        .rank-item { color: #fff; margin: 5px 0; letter-spacing: 1px; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -30,11 +33,14 @@
         <div id="start-screen" class="overlay">
             <h1 class="fury-title">ASPHALT FURY</h1>
             <p class="warning-text">NÉ TRÁNH HOẶC BỊ NGHIỀN NÁT!</p>
+            
             <button onclick="initGame()">KHỞI ĐỘNG</button>
-            <p class="instruction">(Sử dụng phím Mũi tên TRÁI / PHẢI để di chuyển)</p>
+            
+            <div class="move-note">⚠️ CẢNH BÁO: DÙNG PHÍM MŨI TÊN TRÁI/PHẢI ĐỂ LÁI XE!</div>
+
             <div class="leaderboard">
-                <p>--- TOP 5 RANKING ---</p>
-                <div id="rank-list">Chưa có dữ liệu</div>
+                <p style="margin: 10px 0; font-weight: bold;">--- TOP 5 RANKING ---</p>
+                <div id="rank-list"></div>
             </div>
         </div>
 
@@ -91,19 +97,24 @@
         }
 
         function updateRanking(s) {
-            let r = JSON.parse(localStorage.getItem('af_ranks_final')) || [];
+            let r = JSON.parse(localStorage.getItem('af_final_rank_sys')) || [];
             r.push(s); r.sort((a, b) => b - a);
-            localStorage.setItem('af_ranks_final', JSON.stringify(r.slice(0, 5)));
+            localStorage.setItem('af_final_rank_sys', JSON.stringify(r.slice(0, 5)));
         }
 
         function displayRanking() {
-            const r = JSON.parse(localStorage.getItem('af_ranks_final')) || [];
-            document.getElementById('rank-list').innerHTML = r.length ? r.map((s, i) => `#${i+1}: ${s} PTS`).join('<br>') : "Chưa có dữ liệu";
+            const r = JSON.parse(localStorage.getItem('af_final_rank_sys')) || [];
+            const list = document.getElementById('rank-list');
+            list.innerHTML = "";
+            // Luôn hiển thị đủ 5 dòng, nếu trống thì hiện ?pts
+            for(let i=0; i<5; i++) {
+                const scoreDisplay = r[i] !== undefined ? `${r[i]} pts` : "?pts";
+                list.innerHTML += `<div class="rank-item">RANK #${i+1} : ${scoreDisplay}</div>`;
+            }
         }
 
         function loop() {
             if (!gameActive) return;
-
             roadOffset = (roadOffset + speed) % 50;
             if (keys['ArrowLeft'] && player.x > 10) player.x -= 8;
             if (keys['ArrowRight'] && player.x < 345) player.x += 8;
@@ -124,7 +135,7 @@
                         document.getElementById('final-score').innerText = `SCORE: ${score}`;
                     } else {
                         score += 250; 
-                        playSfx(900, 'sine', 0.1);
+                        playSfx(1100, 'sine', 0.1);
                         obstacles.splice(i, 1);
                     }
                 }
@@ -132,7 +143,7 @@
             });
 
             ctx.clearRect(0, 0, 400, 600);
-            ctx.strokeStyle = "rgba(0, 242, 255, 0.15)"; ctx.setLineDash([30, 20]); ctx.lineDashOffset = -roadOffset;
+            ctx.strokeStyle = "rgba(0,242,255,0.15)"; ctx.setLineDash([30, 20]); ctx.lineDashOffset = -roadOffset;
             ctx.beginPath(); ctx.moveTo(200, 0); ctx.lineTo(200, 600); ctx.stroke();
             
             ctx.fillStyle = "#fff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
@@ -143,7 +154,6 @@
                 if (obj.type === 'point') { ctx.beginPath(); ctx.arc(obj.x+12, obj.y+12, 10, 0, Math.PI*2); ctx.fill(); }
                 else { ctx.shadowBlur = 0; ctx.fillRect(obj.x, obj.y, obj.w, obj.h); }
             });
-
             document.getElementById('current-score').innerText = score;
             speed = 6 + Math.floor(score / 2000);
             frameCount++;
