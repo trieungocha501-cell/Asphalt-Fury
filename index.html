@@ -2,145 +2,55 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asphalt Fury - Neon Edition</title>
+    <title>Asphalt Fury</title>
     <style>
-        /* === PHẦN 1: STYLE (GIAO DIỆN) === */
-        body {
-            margin: 0; background-color: #050505;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; font-family: 'Segoe UI', sans-serif;
-            color: white; overflow: hidden;
-        }
-        #game-container {
-            position: relative; width: 400px; height: 600px;
-            border: 2px solid #00f2ff; box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
-        }
-        canvas { display: block; background-color: #0a0a0a; }
-        .overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 20;
-        }
-        .fury-title {
-            font-size: 3rem; color: #fff; text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff;
-            margin-bottom: 10px; font-weight: 900; font-style: italic;
-        }
-        #score-board {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            color: #00f2ff; font-weight: bold; font-size: 1.2rem;
-        }
-        button {
-            padding: 15px 40px; font-size: 1rem; cursor: pointer;
-            background: transparent; border: 2px solid #00f2ff; color: #00f2ff;
-            text-transform: uppercase; font-weight: bold; transition: 0.3s;
-        }
-        button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 20px #00f2ff; }
+        /* GIAO DIỆN NEON ĐEN - TRẮNG - XANH */
+        body { margin: 0; background: #050505; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', monospace; color: white; overflow: hidden; }
+        #game-container { position: relative; width: 400px; height: 600px; border: 2px solid #00f2ff; box-shadow: 0 0 20px #00f2ff55; }
+        canvas { display: block; background: #0a0a0a; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center; }
+        
+        /* GIỮ NGUYÊN TIÊU ĐỀ */
+        .fury-title { font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #00f2ff; margin-bottom: 5px; font-weight: 900; }
+        .warning-text { color: #ff0055; font-size: 0.85rem; margin-bottom: 20px; font-weight: bold; letter-spacing: 1px; }
+        
+        #score-board { position: absolute; top: 15px; left: 15px; color: #00f2ff; font-weight: bold; z-index: 10; font-size: 1.1rem; }
+        button { padding: 12px 30px; margin: 8px; background: transparent; border: 1px solid #00f2ff; color: #00f2ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }
+        
+        .leaderboard { margin-top: 20px; padding: 10px; border-top: 1px solid #333; width: 80%; font-size: 0.8rem; color: #00f2ff; }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div id="ui-layer">
-            <div id="score-board">SCORE: <span id="current-score">0</span></div>
-            <div id="start-screen" class="overlay">
-                <h1 class="fury-title">ASPHALT FURY</h1>
-                <p style="color: #00f2ff;">NEON RACER V1.0</p>
-                <button onclick="startGame()">BẮT ĐẦU</button>
-            </div>
-            <div id="game-over-screen" class="overlay hidden">
-                <h1 style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">SYSTEM FAILURE</h1>
-                <p id="final-score">SCORE: 0</p>
-                <button onclick="startGame()">THỬ LẠI</button>
+        <div id="score-board">SCORE: <span id="current-score">0</span></div>
+        
+        <div id="start-screen" class="overlay">
+            <h1 class="fury-title">ASPHALT FURY</h1>
+            <p class="warning-text">NÉ TRÁNH HOẶC BỊ NGHIỀN NÁT!</p>
+            <button onclick="startGame()">KHỞI ĐỘNG</button>
+            <div class="leaderboard">
+                --- BẢNG XẾP HẠNG TOP 5 ---
+                <div id="rank-list" style="margin-top: 10px; color: #fff;">Chưa có dữ liệu</div>
             </div>
         </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">CRASHED!</h1>
+            <p id="final-score" style="font-size: 1.5rem;">SCORE: 0</p>
+            <button onclick="startGame()">CHƠI LẠI</button>
+            <button onclick="showHome()">VỀ TRANG CHỦ</button>
+        </div>
+
         <canvas id="gameCanvas"></canvas>
     </div>
 
     <script>
-        /* === PHẦN 2: SCRIPT (LOGIC GAME) === */
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 400; canvas.height = 600;
 
-        let gameActive = false, score = 0, speed = 5, obstacles = [], roadOffset = 0, frameCount = 0;
-        const player = { x: 175, y: 480, w: 45, h: 80 };
-        const keys = {};
-
-        window.addEventListener('keydown', e => keys[e.code] = true);
-        window.addEventListener('keyup', e => keys[e.code] = false);
-
-        function startGame() {
-            score = 0; speed = 5; obstacles = []; player.x = 175; gameActive = true;
-            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-            loop();
-        }
-
-        function spawnObject() {
-            const isPoint = Math.random() < 0.2;
-            obstacles.push({
-                x: Math.random() * (canvas.width - 60) + 10,
-                y: -100, w: isPoint ? 20 : 45, h: isPoint ? 20 : 80,
-                type: isPoint ? 'point' : 'car',
-                color: isPoint ? '#00f2ff' : '#ffffff'
-            });
-        }
-
-        function update() {
-            if (!gameActive) return;
-            roadOffset = (roadOffset + speed) % 50;
-            if (keys['ArrowLeft'] && player.x > 10) player.x -= 8;
-            if (keys['ArrowRight'] && player.x < canvas.width - player.w - 10) player.x += 8;
-            speed = 5 + Math.floor(score / 800);
-            if (frameCount % Math.max(15, 80 - speed * 2) === 0) spawnObject();
-
-            obstacles.forEach((obj, i) => {
-                obj.y += speed;
-                if (player.x < obj.x + obj.w && player.x + player.w > obj.x &&
-                    player.y < obj.y + obj.h && player.y + player.h > obj.y) {
-                    if (obj.type === 'car') {
-                        gameActive = false;
-                        document.getElementById('game-over-screen').classList.remove('hidden');
-                        document.getElementById('final-score').innerText = `SCORE: ${score}`;
-                    } else {
-                        score += 150; obstacles.splice(i, 1);
-                    }
-                }
-                if (obj.y > canvas.height) { obstacles.splice(i, 1); if (obj.type === 'car') score += 10; }
-            });
-            document.getElementById('current-score').innerText = score;
-            frameCount++;
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Vạch đường trắng mờ
-            ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.setLineDash([30, 20]);
-            ctx.lineDashOffset = -roadOffset; ctx.beginPath();
-            ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
-
-            // Xe người chơi
-            ctx.shadowBlur = 10; ctx.shadowColor = "#00f2ff";
-            ctx.fillStyle = "#fff"; ctx.fillRect(player.x, player.y, player.w, player.h);
-            ctx.shadowBlur = 0;
-
-            obstacles.forEach(obj => {
-                ctx.fillStyle = obj.color;
-                if (obj.type === 'point') {
-                    ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
-                    ctx.beginPath(); ctx.arc(obj.x+10, obj.y+10, 10, 0, Math.PI*2); ctx.fill();
-                    ctx.shadowBlur = 0;
-                } else {
-                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
-                }
-            });
-        }
-
-        function loop() {
-            if (!gameActive) return;
-            update(); draw(); requestAnimationFrame(loop);
-        }
-    </script>
-</body>
-</html>
+        // HỆ THỐNG ÂM THANH
+        const bgm = new Audio
