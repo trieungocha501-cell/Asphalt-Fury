@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asphalt Fury</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-layer">
+            <div id="score-board">
+                <div>SCORE: <span id="current-score">0</span></div>
+                <div style="font-size: 0.8rem; color: #aaa;">HIGH: <span id="high-score">0</span></div>
+            </div>
+            
+            <div id="start-screen" class="overlay">
+                <h1 class="fury-title">ASPHALT FURY</h1>
+                <p>Né tránh hoặc bị nghiền nát!</p>
+                <button onclick="startGame()">NHẤN ĐỂ ĐUA</button>
+            </div>
+
+            <div id="game-over-screen" class="overlay hidden">
+                <h1 style="color: #ff4757;">WASTED</h1>
+                <p id="final-score">SCORE: 0</p>
+                <button onclick="startGame()">THỬ LẠI</button>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
