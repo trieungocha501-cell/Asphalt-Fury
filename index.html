@@ -20,4 +20,145 @@
         button { padding: 12px 30px; margin: 5px; background: transparent; border: 1px solid #00f2ff; color: #00f2ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; width: 220px; }
         button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }
         
-        .leaderboard { margin-top: 15px; border-top:
+        .leaderboard { margin-top: 15px; border-top: 1px solid #333; width: 85%; font-size: 0.9rem; color: #00f2ff; }
+        .rank-item { color: #fff; margin: 5px 0; letter-spacing: 1px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="score-board">SCORE: <span id="current-score">0</span></div>
+        
+        <div id="start-screen" class="overlay">
+            <h1 class="fury-title">ASPHALT FURY</h1>
+            <p class="warning-text">NÉ TRÁNH HOẶC BỊ NGHIỀN NÁT!</p>
+            
+            <button onclick="initGame()">KHỞI ĐỘNG</button>
+            
+            <div class="move-note">LƯU Ý: DÙNG PHÍM MŨI TÊN TRÁI/PHẢI ĐỂ LÁI XE!</div>
+
+            <div class="leaderboard">
+                <p style="margin: 10px 0; font-weight: bold;">--- TOP 5 RANKING ---</p>
+                <div id="rank-list"></div>
+            </div>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 style="color: #ff0055; text-shadow: 0 0 10px #ff0055; font-size: 2.5rem;">WASTED</h1>
+            <p id="final-score" style="font-size: 1.2rem; margin-bottom: 20px;">SCORE: 0</p>
+            <button onclick="initGame()">THỬ LẠI</button>
+            <button onclick="showHome()">VỀ TRANG CHỦ</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 400; canvas.height = 600;
+
+        let audioCtx;
+        function playSfx(freq, type, duration) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        let gameActive = false, score = 0, speed = 6, obstacles = [], roadOffset = 0, frameCount = 0;
+        const player = { x: 177, y: 480, w: 45, h: 80 };
+        const keys = {};
+
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function showHome() {
+            gameActive = false;
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            displayRanking();
+        }
+
+        function initGame() {
+            score = 0; speed = 6; obstacles = []; player.x = 177; frameCount = 0;
+            gameActive = true;
+            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+            requestAnimationFrame(loop);
+        }
+
+        function updateRanking(s) {
+            let r = JSON.parse(localStorage.getItem('af_final_rank_v4')) || [];
+            r.push(s); r.sort((a, b) => b - a);
+            localStorage.setItem('af_final_rank_v4', JSON.stringify(r.slice(0, 5)));
+        }
+
+        function displayRanking() {
+            const r = JSON.parse(localStorage.getItem('af_final_rank_v4')) || [];
+            const list = document.getElementById('rank-list');
+            list.innerHTML = "";
+            for(let i=0; i<5; i++) {
+                const scoreDisplay = r[i] !== undefined ? `${r[i]} pts` : "?pts";
+                list.innerHTML += `<div class="rank-item">RANK #${i+1} : ${scoreDisplay}</div>`;
+            }
+        }
+
+        function loop() {
+            if (!gameActive) return;
+            roadOffset = (roadOffset + speed) % 50;
+            if (keys['ArrowLeft'] && player.x > 10) player.x -= 8;
+            if (keys['ArrowRight'] && player.x < 345) player.x += 8;
+
+            if (frameCount % Math.max(15, 80 - speed * 3) === 0) {
+                const isP = Math.random() < 0.2;
+                obstacles.push({ x: Math.random() * 340 + 5, y: -100, w: isP?25:45, h: isP?25:85, type: isP?'point':'car' });
+            }
+
+            obstacles.forEach((obj, i) => {
+                obj.y += speed;
+                if (player.x < obj.x + obj.w && player.x + player.w > obj.x && player.y < obj.y + obj.h && player.y + player.h > obj.y) {
+                    if (obj.type === 'car') {
+                        gameActive = false;
+                        playSfx(120, 'sawtooth', 0.5);
+                        updateRanking(score);
+                        document.getElementById('game-over-screen').classList.remove('hidden');
+                        document.getElementById('final-score').innerText = `SCORE: ${score}`;
+                    } else {
+                        score += 250; 
+                        playSfx(1100, 'sine', 0.1);
+                        obstacles.splice(i, 1);
+                    }
+                }
+                if (obj.y > 600) { obstacles.splice(i, 1); if (obj.type === 'car') score += 10; }
+            });
+
+            ctx.clearRect(0, 0, 400, 600);
+            ctx.strokeStyle = "rgba(0,242,255,0.15)"; ctx.setLineDash([30, 20]); ctx.lineDashOffset = -roadOffset;
+            ctx.beginPath(); ctx.moveTo(200, 0); ctx.lineTo(200, 600); ctx.stroke();
+            
+            ctx.fillStyle = "#fff"; ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            
+            obstacles.forEach(obj => {
+                ctx.fillStyle = obj.type === 'point' ? '#00f2ff' : '#444';
+                if (obj.type === 'point') { ctx.beginPath(); ctx.arc(obj.x+12, obj.y+12, 10, 0, Math.PI*2); ctx.fill(); }
+                else { ctx.shadowBlur = 0; ctx.fillRect(obj.x, obj.y, obj.w, obj.h); }
+            });
+            document.getElementById('current-score').innerText = score;
+            speed = 6 + Math.floor(score / 2000);
+            frameCount++;
+            requestAnimationFrame(loop);
+        }
+        displayRanking();
+    </script>
+</body>
+</html>
